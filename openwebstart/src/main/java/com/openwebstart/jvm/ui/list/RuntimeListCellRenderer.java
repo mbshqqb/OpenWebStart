@@ -4,6 +4,7 @@ import com.openwebstart.jvm.runtimes.LocalJavaRuntime;
 import com.openwebstart.jvm.ui.Images;
 import com.openwebstart.jvm.ui.util.CenterLayout;
 import com.openwebstart.jvm.ui.util.IconComponent;
+import com.openwebstart.jvm.ui.widgets.switchbutton.SteelCheckBox;
 import net.adoptopenjdk.icedteaweb.Assert;
 
 import javax.swing.BorderFactory;
@@ -41,6 +42,8 @@ class RuntimeListCellRenderer implements ListCellRenderer<LocalJavaRuntime> {
 
     private final IconComponent deactivatedIcon;
 
+    private final SteelCheckBox activationSwitch;
+
     private final IconComponent actionsIcon;
 
     private final IconComponent actionsHooverIcon;
@@ -59,7 +62,7 @@ class RuntimeListCellRenderer implements ListCellRenderer<LocalJavaRuntime> {
         archLabel = new JLabel("ARCH");
         javaHomeLable = new JLabel("JAVA_HOME");
         deactivatedIcon = new IconComponent(new ImageIcon(Images.DEACTIVATED_24_URL));
-
+        activationSwitch = new SteelCheckBox(" ");
 
         cellContent = new JPanel();
         cellContent.setLayout(new BorderLayout(12, 12));
@@ -98,6 +101,8 @@ class RuntimeListCellRenderer implements ListCellRenderer<LocalJavaRuntime> {
         firstLinePanel.add(versionLabel);
         firstLinePanel.add(Box.createHorizontalStrut(6));
         firstLinePanel.add(vendorLabel);
+        firstLinePanel.add(Box.createHorizontalStrut(12));
+        firstLinePanel.add(activationSwitch);
         firstLinePanel.add(Box.createHorizontalGlue());
 
         final JPanel secondLine = new JPanel();
@@ -157,8 +162,12 @@ class RuntimeListCellRenderer implements ListCellRenderer<LocalJavaRuntime> {
 
         if (Optional.ofNullable(value).map(LocalJavaRuntime::isActive).orElse(false)) {
             deactivatedIcon.setVisible(false);
+            activationSwitch.setSelected(true);
+            activationSwitch.setToolTipText("Switch to deactivate");
         } else {
             deactivatedIcon.setVisible(true);
+            activationSwitch.setSelected(false);
+            activationSwitch.setToolTipText("Switch to activate");
         }
 
         if (this.listHighlighter.isInActionArea() && this.listHighlighter.getHoverIndex() == index) {
