@@ -9,11 +9,10 @@ import com.openwebstart.jvm.ui.dialogs.RuntimeDownloadDialog;
 import net.adoptopenjdk.icedteaweb.commandline.CommandLineOptions;
 import net.adoptopenjdk.icedteaweb.logging.Logger;
 import net.adoptopenjdk.icedteaweb.logging.LoggerFactory;
-import net.sourceforge.jnlp.runtime.Boot;
 import net.sourceforge.jnlp.runtime.JNLPRuntime;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,7 +28,6 @@ public class OpenWebStartLauncher {
     private static final Logger LOG = LoggerFactory.getLogger(OpenWebStartLauncher.class);
 
     public static void main(String[] args) {
-
         LOG.info("OpenWebStartLauncher called with args {}.", Arrays.toString(args));
         LOG.debug("OS detected: Win[{}], MacOS[{}], Linux[{}]",
                 InstallerUtil.isWindows(), InstallerUtil.isMacOS(), InstallerUtil.isLinux());
@@ -42,6 +40,8 @@ public class OpenWebStartLauncher {
         JavaRuntimeSelector.setAskForUpdateFunction(AskForRuntimeUpdateDialog::askForUpdate);
         JNLPRuntime.setForkingStrategy(ALWAYS);
 
+        final JnlpApplicationLauncher launcher = new JnlpApplicationLauncher(new OwsJvmLauncher(javaRuntimeProvider));
+
         /**
          * Listener will be called when the executable is started again or when a file open event is received.
          * Note that each invocation may be from a separate thread, therefore the implementation needs to be
@@ -50,13 +50,16 @@ public class OpenWebStartLauncher {
         StartupNotification.registerStartupListener(new StartupNotification.Listener() {
             public void startupPerformed(String parameters) {
                 synchronized (this) {
-
                     if (InstallerUtil.isMacOS()) {
-                        LOG.info("MacOS detected, Launcher needs to add JNLP file name {} to the list of arguments.", parameters);
-                        Collections.addAll(bootArgs, parameters); // add file name at the end file to open
+                        final String[] applicationParameters = parameters.split(" ");
 
-                        LOG.info("ITW Boot called with custom OwsJvmLauncher and args {}.", bootArgs);
-                        Boot.main(new OwsJvmLauncher(javaRuntimeProvider), bootArgs.toArray(new String[0]));
+                        LOG.info("MacOS detected, Launcher needs to add parameters {} to the list of arguments.", parameters);
+                        final List<String> mergedParameters = new ArrayList<>();
+                        mergedParameters.addAll(bootArgs);
+                        mergedParameters.addAll(Arrays.asList(applicationParameters));
+
+                        final String appName = extractAppName(mergedParameters);
+                        launcher.launch(appName, mergedParameters.toArray(new String[0]));
                     }
                 }
             }
@@ -64,11 +67,25 @@ public class OpenWebStartLauncher {
 
         // Windows and Linux are called here
         if (!InstallerUtil.isMacOS()) {
-            LOG.info("ITW Boot called with custom OwsJvmLauncher and args {}.", Arrays.toString(args));
-            Boot.main(new OwsJvmLauncher(javaRuntimeProvider), bootArgs.toArray(new String[0]));
+            final String appName = extractAppName(bootArgs);
+            launcher.launch(appName, bootArgs.toArray(new String[0]));
         }
     }
 
+    private static String extractAppName(final List<String> args) {
+        return args.stream().filter(a -> a.toLowerCase().endsWith(".jnlp"))
+                .map(a -> a.substring(0, a.length() - 5))
+                .map(a -> {
+                    String[] values = a.split("/");
+                    if(values.length > 1) {
+                        return values[values.length - 1];
+                    }
+                    return null;
+                })
+                .findAny()
+                .orElse("unknown-app");
+
+    }
 
     private static List<String> skipNotRelevantArgs(final String[] args) {
         final List<String> relevantJavawsArgs = Arrays.stream(args)
